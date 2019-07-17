@@ -125,7 +125,7 @@ fn fill_buffer(buffer: &mut Vec<u8>) {
         for c in s.as_bytes() {
             buffer.push(*c);
         }
-        buffer.pop(); // drop newline
+        // buffer.pop(); // drop newline
         buffer.reverse();
     }
 }
