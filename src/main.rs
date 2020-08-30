@@ -1,6 +1,6 @@
-use std::io;
 use std::env;
 use std::fs::File;
+use std::io;
 use std::io::Read;
 
 #[derive(Debug)]
@@ -29,7 +29,7 @@ fn parse(code: &str) -> Vec<Token> {
             ',' => tokens.push(Token::T_COMMA),
             '[' => tokens.push(Token::T_LBRACKET),
             ']' => tokens.push(Token::T_RBRACKET),
-            _   => {}
+            _ => {}
         }
     }
 
@@ -48,38 +48,33 @@ enum OpCode {
     Jump(usize),
 }
 
-fn compile(toks: &Vec<Token>) -> Result<Vec<OpCode>, &str> {
-    let mut idx: usize = 0;
+fn compile(toks: &[Token]) -> Result<Vec<OpCode>, &str> {
     let mut brackets = vec![];
     let mut bytecode = vec![];
 
-    for tok in toks {
+    for (idx, tok) in toks.iter().enumerate() {
         match tok {
-            Token::T_GT    => bytecode.push(OpCode::Right),
-            Token::T_LT    => bytecode.push(OpCode::Left),
-            Token::T_PLUS  => bytecode.push(OpCode::Inc),
+            Token::T_GT => bytecode.push(OpCode::Right),
+            Token::T_LT => bytecode.push(OpCode::Left),
+            Token::T_PLUS => bytecode.push(OpCode::Inc),
             Token::T_MINUS => bytecode.push(OpCode::Dec),
-            Token::T_DOT   => bytecode.push(OpCode::Print),
+            Token::T_DOT => bytecode.push(OpCode::Print),
             Token::T_COMMA => bytecode.push(OpCode::Read),
             Token::T_LBRACKET => {
                 brackets.push(idx);
                 bytecode.push(OpCode::JumpIfZero(0));
             }
-            Token::T_RBRACKET => {
-                match brackets.pop() {
-                    None => return Err("Unmatched right bracket!"),
-                    Some(j) => {
-                        bytecode.push(OpCode::Jump(j));
-                        bytecode[j] = OpCode::JumpIfZero(idx+1);
-                    }
+            Token::T_RBRACKET => match brackets.pop() {
+                None => return Err("Unmatched right bracket!"),
+                Some(j) => {
+                    bytecode.push(OpCode::Jump(j));
+                    bytecode[j] = OpCode::JumpIfZero(idx + 1);
                 }
-            }
+            },
         }
-
-        idx += 1;
     }
 
-    if brackets.len() == 0 {
+    if brackets.is_empty() {
         Ok(bytecode)
     } else {
         Err("Unmatched left bracket!")
@@ -89,15 +84,15 @@ fn compile(toks: &Vec<Token>) -> Result<Vec<OpCode>, &str> {
 struct Tape {
     left: Vec<u8>,
     curr: u8,
-    right: Vec<u8>
+    right: Vec<u8>,
 }
 
 impl Tape {
     fn new() -> Tape {
         Tape {
-            left: vec![0,0,0,0,0,0,0,0],
+            left: vec![0, 0, 0, 0, 0, 0, 0, 0],
             curr: 0,
-            right: vec![0,0,0,0,0,0,0,0],
+            right: vec![0, 0, 0, 0, 0, 0, 0, 0],
         }
     }
 
@@ -119,7 +114,7 @@ impl Tape {
 }
 
 fn fill_buffer(buffer: &mut Vec<u8>) {
-    while buffer.len() == 0 {
+    while buffer.is_empty() {
         let mut s = String::new();
         io::stdin().read_line(&mut s).expect("Failed to read line");
         for c in s.as_bytes() {
@@ -133,8 +128,7 @@ fn fill_buffer(buffer: &mut Vec<u8>) {
 fn inc(x: &mut u8) {
     if *x == 255 {
         *x = 0;
-    }
-    else {
+    } else {
         *x += 1;
     }
 }
@@ -142,13 +136,12 @@ fn inc(x: &mut u8) {
 fn dec(x: &mut u8) {
     if *x == 0 {
         *x = 255;
-    }
-    else {
+    } else {
         *x -= 1;
     }
 }
 
-fn interpret(bytecode: &Vec<OpCode>) {
+fn interpret(bytecode: &[OpCode]) {
     let mut tape = Tape::new();
     let mut idx: usize = 0;
 
@@ -158,19 +151,27 @@ fn interpret(bytecode: &Vec<OpCode>) {
         //println!("{}: {}, {:?}", idx, tape.curr, bytecode[idx]);
         match bytecode[idx] {
             OpCode::Right => tape.move_right(),
-            OpCode::Left  => tape.move_left(),
-            OpCode::Inc   => inc(&mut tape.curr),
-            OpCode::Dec   => dec(&mut tape.curr),
+            OpCode::Left => tape.move_left(),
+            OpCode::Inc => inc(&mut tape.curr),
+            OpCode::Dec => dec(&mut tape.curr),
             OpCode::Print => print!("{}", tape.curr as char),
             OpCode::Read => match buffer.pop() {
                 Some(c) => tape.curr = c,
-                None => { fill_buffer(&mut buffer); tape.curr = buffer.pop().unwrap(); }
+                None => {
+                    fill_buffer(&mut buffer);
+                    tape.curr = buffer.pop().unwrap();
+                }
+            },
+            OpCode::JumpIfZero(j) => {
+                if tape.curr == 0 {
+                    idx = j;
+                    continue;
+                }
             }
-            OpCode::JumpIfZero(j) => match tape.curr {
-                0 => { idx = j; continue; }
-                _ => {}
+            OpCode::Jump(j) => {
+                idx = j;
+                continue;
             }
-            OpCode::Jump(j) => { idx = j; continue; }
         }
 
         idx += 1;
@@ -189,8 +190,7 @@ fn main() {
             Ok(bytecode) => interpret(&bytecode),
             Err(e) => println!("{}", e),
         }
-    }
-    else {
+    } else {
         println!("please provide a file name");
     }
 }
